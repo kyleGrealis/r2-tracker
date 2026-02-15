@@ -1,0 +1,28 @@
+# wrangler.toml
+
+name = "r2-tracker"
+main = "src/index.js"
+compatibility_date = "2025-04-01"
+
+# Routes: which subdomains this Worker handles
+# When a request hits either subdomain, Cloudflare sends it to this Worker
+routes = [
+  { pattern = "nhanes.kylegrealis.com/*", zone_name = "kylegrealis.com" },
+  { pattern = "nascar.kylegrealis.com/*", zone_name = "kylegrealis.com" },
+]
+
+# R2 bucket bindings: give each bucket a variable name the Worker can use
+# In JS code, env.NHANES_BUCKET and env.NASCAR_BUCKET are the bucket objects
+[[r2_buckets]]
+binding = "NHANES_BUCKET"
+bucket_name = "nhanes-data"
+
+[[r2_buckets]]
+binding = "NASCAR_BUCKET"
+bucket_name = "nascar-data"
+
+# D1 database binding: env.DB in the Worker code
+[[d1_databases]]
+binding = "DB"
+database_name = "r2-downloads"
+database_id = "31a99c29-a83c-42e5-b8e9-eeefa02ca073"

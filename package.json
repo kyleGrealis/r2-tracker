@@ -1,0 +1,13 @@
+{
+  "name": "r2-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker to track R2 downloads for kylegrealis.com subdomains",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.65.0"
+  }
+}
