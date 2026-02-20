@@ -1,6 +1,7 @@
 {
   "name": "r2-tracker",
   "version": "1.0.0",
+  "type": "module",
   "private": true,
   "description": "Cloudflare Worker to track R2 downloads for kylegrealis.com subdomains",
   "scripts": {

@@ -1,3 +1,5 @@
+import { jsonResponse } from "./module.js";
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -38,7 +40,36 @@ export default {
       });
     }
 
-    // Route: stats (placeholder)
+    // Route: raw data
+    if (pathname === "/raw") {
+      const raw = await env.DB.prepare(
+        "SELECT file, project, downloads_at as time FROM downloads WHERE project = ?"
+      )
+        .bind(project)
+        .all();
+
+      return jsonResponse(raw.results);
+    }
+
+    // Route: cleaned data by removing ".parquet" from file name
+    if (pathname === "/cleaned") {
+
+      const raw = await env.DB.prepare(
+        "SELECT file, project, downloads_at as time FROM downloads WHERE project = ?"
+      )
+        .bind(project)
+        .all();
+      
+      const cleaned = raw.results.map((item) => ({
+        file: item.file.split(".")[0],
+        project: item.project,
+        time: item.time,
+      }));
+
+      return jsonResponse(cleaned);
+    }
+
+    // Route: stats
     if (pathname === "/stats") {
       // use await so the call doesn't return a Promise and waits until the 
       // SQL query completes
@@ -48,12 +79,10 @@ export default {
         .bind(project)
         .all();
       
-      return new Response(JSON.stringify(stats.results), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return jsonResponse(stats.results);
     }
 
-    // Route: dashboard (placeholder)
+    // Route: dashboard
     if (pathname === "/dashboard") {
       const stats = await env.DB.prepare(
         "SELECT file, project, COUNT(*) as count FROM downloads WHERE project = ? GROUP by file, project ORDER BY count DESC"
