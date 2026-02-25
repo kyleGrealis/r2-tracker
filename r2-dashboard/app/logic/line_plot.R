@@ -1,9 +1,10 @@
 # app/logic/line_plot.R
 
 box::use(
-  echarts4r[ e_charts, e_line, e_legend, e_x_axis, e_y_axis, e_theme, e_title, e_tooltip ],
+  echarts4r[ e_charts, e_line, e_legend, e_x_axis, e_y_axis, e_title, e_tooltip ],
   dplyr[ arrange, group_by, mutate, row_number ],
   stringr[ str_remove ],
+  utils[ head ]
 )
 
 #' Create a line chart of raw data over time
@@ -25,6 +26,9 @@ line_plot <- function(data, project) {
       count = row_number(file),
       .by = file
     ) |> 
+    # arrange(count) |> 
+    # head(10) |> 
+    # arrange(desc(count)) |> 
     group_by(file) |> 
     e_charts(time) |> 
     e_line(serie = count) |> 
@@ -41,7 +45,6 @@ line_plot <- function(data, project) {
       text = sprintf("%s File Type Downloads", name),
       subtext = "Since February 15, 2026"
     ) |> 
-    e_theme("london") |> 
     e_tooltip()
 
   # if (project == "nascar") chart |> e_x_axis(axisLabel = list(show = FALSE)) else chart
@@ -76,7 +79,6 @@ line_plot <- function(data, project) {
 #     text = sprintf("%s File Type Downloads", name),
 #     subtext = "Since February 15, 2026"
 #   ) |> 
-#   e_theme("london") |> 
 #   e_tooltip()
 
 

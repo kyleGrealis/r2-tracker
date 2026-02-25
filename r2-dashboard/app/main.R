@@ -1,15 +1,24 @@
 box::use(
-  shiny[bootstrapPage, div, h1, moduleServer, NS, reactive, renderUI, tags, uiOutput],
+  bslib[ bs_theme ],
+  echarts4r[ e_common ],
+  shiny[ bootstrapPage, div, h1, moduleServer, NS, reactive, renderUI, tags, uiOutput ],
+)
+
+e_common(
+  font_family = "Google Sans",
+  theme = "london"
+  # theme = "forest"
 )
 
 box::use(
-  app/logic/data,
   app/logic/bar_plot,
+  app/logic/data,
   app/logic/line_plot,
 
   app/view/chart,
-  app/view/projSelector,
+  app/view/footer,
   app/view/plotSelector,
+  app/view/projSelector,
   app/view/table,
   app/view/typeSelector,
 )
@@ -18,6 +27,8 @@ box::use(
 ui <- function(id) {
   ns <- NS(id)
   bootstrapPage(
+    theme = bs_theme(primary = "firebrick"),
+
     title = "Cloudflare R2 data tracking dashboard",
     h1("Cloudflare R2 data tracking dashboard"),
 
@@ -32,7 +43,9 @@ ui <- function(id) {
       class = "components-container",
       table$ui(ns("table")),
       chart$ui(ns("chart"))
-    )
+    ),
+
+    footer$ui(ns("footer"))
   )
 }
 
@@ -47,10 +60,19 @@ server <- function(id) {
 
     table$server("table", data = fetched)
     chart$server(
-      "chart", data = fetched, 
+      "chart", 
+      data = fetched, 
       project = project, # "NASCAR" or "NHANES"
-      type = type       # counted or raw
+      type = type        # counted or raw
       # plot = plot        # bar or line
+    )
+
+    footer$server(
+      "footer", 
+      data = fetched,
+      project = project, 
+      type = type,
+      start_day = "2020-01-01"
     )
   })
 }
