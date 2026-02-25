@@ -6,7 +6,8 @@
   "description": "Cloudflare Worker to track R2 downloads for kylegrealis.com subdomains",
   "scripts": {
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "dev": "wrangler dev",
+    "shiny": "rsync -azH --info=progress2 r2-dashboard/ pi5:/srv/shiny-server/r2-dashboard"
   },
   "devDependencies": {
     "wrangler": "^4.65.0"
