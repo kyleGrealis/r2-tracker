@@ -1,8 +1,9 @@
 # app/view/table.R
 
 box::use(
+  dplyr[ filter, n, summarize ],
   reactable[ reactable, reactableOutput, renderReactable ],
-  shiny[ div, h3, moduleServer, NS, tagList ],
+  shiny[ div, moduleServer, NS ],
 )
 
 #' @export
@@ -15,14 +16,25 @@ ui <- function(id) {
   )
 }
 
-#' @param data Fetched data tibble of either raw or counted
+#' Render a reactable table based on type (raw or counted)
+#' @param data Reactive. Tibble of downloaded data (counted or raw)
+#' @param type Reactive. Character, "stats" or "raw"
+#' @param start_date Reactive. Date object from dateInput
 #' @export
-server <- function(id, data) {
+server <- function(id, data, type, start_date) {
   moduleServer(id, function(input, output, session) {
-    output$table <- renderReactable(
-      # call the reactive "data()" inside the render function
-      # to unwrap the reactive object
-      reactable(data(), searchable = TRUE)
-    )
+    output$table <- renderReactable({
+
+      df <- if (type() == "stats") {
+        data() |> 
+          filter(time >= start_date()) |>
+          summarize(count = n(), .by = file)
+      } else {
+        data() |> filter(time >= start_date())
+      }
+
+      reactable(df, defaultPageSize = 6, searchable = TRUE)
+    
+    })
   })
 }

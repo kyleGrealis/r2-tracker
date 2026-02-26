@@ -1,8 +1,8 @@
-# app/view/plot.R
+# app/view/chart.R
 
 box::use(
   echarts4r[ echarts4rOutput, renderEcharts4r ],
-  shiny[ div, h3, moduleServer, NS, tagList ],
+  shiny[ div, moduleServer, NS ],
 )
 
 box::use(
@@ -20,12 +20,13 @@ ui <- function(id) {
   )
 }
 
-#' @param data Fetched data tibble of either raw or counted
-#' @param project Reactive object of either "NASCAR" or "NHANES"
-#' @param type Reactive object of either "stats" or "raw"
-#' @param plot Reactive object of either "bar" or "line"
+#' Render either bar or line plot
+#' @param data Reactive. Tibble of downloaded data (counted or raw)
+#' @param project Reactive. Character, "nascar" or "nhanes"
+#' @param type Reactive. Character, "stats" or "raw"
+#' @param start_date Reactive. Date object from dateInput
 #' @export
-server <- function(id, data, project, type, plot) {
+server <- function(id, data, project, type, start_date) {
   moduleServer(id, function(input, output, session) {
 
     # call the reactives for data(), project(), and type()
@@ -33,9 +34,9 @@ server <- function(id, data, project, type, plot) {
 
     output$plot <- renderEcharts4r(
       if (type() == "stats") {
-        bar_plot$bar_plot(data(), project())
-      } else if (type() == "raw") {
-        line_plot$line_plot(data(), project())
+        bar_plot$bar_plot(data(), project(), type(), start_date())
+      } else {
+        line_plot$line_plot(data(), project(), type(), start_date())
       }
     )
   })

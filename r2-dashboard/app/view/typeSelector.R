@@ -19,6 +19,7 @@ ui <- function(id) {
   )
 }
 
+#' @return Reactive. Character, "stats" or "raw"
 #' @export
 server <- function(id) {
   moduleServer(id, function(input, output, session) {

@@ -1,7 +1,9 @@
 box::use(
   bslib[ bs_theme ],
   echarts4r[ e_common ],
-  shiny[ bootstrapPage, div, h1, moduleServer, NS, reactive, renderUI, tags, uiOutput ],
+  shiny[
+    bootstrapPage, div, h1, moduleServer, NS, reactive, renderUI, tags, uiOutput 
+  ],
 )
 
 e_common(
@@ -16,8 +18,8 @@ box::use(
   app/logic/line_plot,
 
   app/view/chart,
+  app/view/dateSelector,
   app/view/footer,
-  app/view/plotSelector,
   app/view/projSelector,
   app/view/table,
   app/view/typeSelector,
@@ -36,7 +38,7 @@ ui <- function(id) {
       class = "selector-container",
       projSelector$ui(ns("name")),
       typeSelector$ui(ns("type")),
-      # plotSelector$ui(ns("plot")),
+      dateSelector$ui(ns("date")),
     ),
 
     div(
@@ -55,16 +57,23 @@ server <- function(id) {
 
     project <- projSelector$server("name")
     type <- typeSelector$server("type")
-    # plot <- plotSelector$server("plot")
-    fetched <- reactive(data$data_pull(project(), type()))
+    date <- dateSelector$server("date")
 
-    table$server("table", data = fetched)
+    fetched <- reactive(data$data_pull(project()))
+
+    table$server(
+      "table",
+      data = fetched,
+      type = type,
+      start_date = date
+    )
+
     chart$server(
       "chart", 
       data = fetched, 
-      project = project, # "NASCAR" or "NHANES"
-      type = type        # counted or raw
-      # plot = plot        # bar or line
+      project = project,  # "NASCAR" or "NHANES"
+      type = type,        # counted or raw
+      start_date = date   # start date
     )
 
     footer$server(
@@ -72,7 +81,7 @@ server <- function(id) {
       data = fetched,
       project = project, 
       type = type,
-      start_day = "2020-01-01"
+      start_date = date
     )
   })
 }

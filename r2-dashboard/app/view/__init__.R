@@ -2,9 +2,9 @@
 # https://go.appsilon.com/rhino-project-structure
 box::use(
   app/view/chart,
+  app/view/dateSelector,
   app/view/footer,
-  app/view/table,
-  app/view/plotSelector,
   app/view/projSelector,
+  app/view/table,
   app/view/typeSelector,
 )

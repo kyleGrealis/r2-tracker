@@ -18,6 +18,7 @@ ui <- function(id) {
   )
 }
 
+#' @return Reactive. Character, "nascar" or "nhanes"
 #' @export
 server <- function(id) {
   moduleServer(id, function(input, output, session) {
