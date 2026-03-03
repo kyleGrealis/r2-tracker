@@ -30,6 +30,10 @@ ui <- function(id) {
   ns <- NS(id)
   bootstrapPage(
     theme = bs_theme(primary = "firebrick"),
+    tags$meta(
+      name = "viewport",
+      content = "width=device-width, initial-scale=1"
+    ),
 
     title = "Cloudflare R2 data tracking dashboard",
     h1("Cloudflare R2 data tracking dashboard"),
