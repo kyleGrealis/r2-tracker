@@ -5,11 +5,16 @@
   "private": true,
   "description": "Cloudflare Worker to track R2 downloads for kylegrealis.com subdomains",
   "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
+    "deploy": "cf deploy",
+    "dev": "cf dev",
     "shiny": "rsync -azH --info=progress2 r2-dashboard/ pi5:/srv/shiny-server/r2-dashboard"
   },
   "devDependencies": {
+    "cf": "^1.0.0-rc.6",
     "wrangler": "^4.65.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261123.1": true
   }
 }

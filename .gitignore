@@ -47,3 +47,4 @@ inst/extdata/debug/
 node_modules/
 .wrangler/
 .dev.vars
+.cloudflare/
