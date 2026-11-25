@@ -1,6 +1,6 @@
-export function jsonResponse(item) {
+export function jsonResponse(item, extraHeaders = {}) {
   return new Response(JSON.stringify(item), {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...extraHeaders },
   });
 }
 

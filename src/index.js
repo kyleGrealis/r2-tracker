@@ -1,5 +1,83 @@
 import { jsonResponse, hashClientIp } from "./utils.js";
 
+const EDGE_CACHE_TTL_SECONDS = 1800; // 30 minutes
+
+async function recordDownload(db, key, project, clientHash, country) {
+  await db
+    .prepare(
+      "INSERT INTO downloads (file, project, client_hash, country) VALUES (?, ?, ?, ?)"
+    )
+    .bind(key, project, clientHash, country)
+    .run();
+
+  let isNewFileClient = 0;
+  let isNewProjectClient = 0;
+
+  if (clientHash) {
+    const fileClientRes = await db
+      .prepare(
+        "INSERT OR IGNORE INTO file_clients (project, file, client_hash) VALUES (?, ?, ?)"
+      )
+      .bind(project, key, clientHash)
+      .run();
+    isNewFileClient = fileClientRes.meta?.changes > 0 ? 1 : 0;
+
+    const projectClientRes = await db
+      .prepare(
+        "INSERT OR IGNORE INTO project_clients (project, client_hash) VALUES (?, ?)"
+      )
+      .bind(project, clientHash)
+      .run();
+    isNewProjectClient = projectClientRes.meta?.changes > 0 ? 1 : 0;
+  }
+
+  const stmts = [
+    db
+      .prepare(
+        `INSERT INTO file_stats (project, file, count, unique_users)
+         VALUES (?, ?, 1, ?)
+         ON CONFLICT (project, file) DO UPDATE SET
+           count = count + 1,
+           unique_users = unique_users + excluded.unique_users`
+      )
+      .bind(project, key, isNewFileClient),
+  ];
+
+  if (isNewProjectClient) {
+    stmts.push(
+      db
+        .prepare(
+          `INSERT INTO project_stats (project, unique_users)
+           VALUES (?, 1)
+           ON CONFLICT (project) DO UPDATE SET
+             unique_users = unique_users + 1`
+        )
+        .bind(project)
+    );
+  }
+
+  await db.batch(stmts);
+}
+
+async function withEdgeCache(request, ctx, buildResponse) {
+  if (request.method !== "GET") {
+    return buildResponse();
+  }
+
+  const cache = caches.default;
+  const cacheKey = new Request(request.url, { method: "GET" });
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const response = await buildResponse();
+  if (response.ok) {
+    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  }
+  return response;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -31,14 +109,10 @@ export default {
       const clientIp = request.headers.get("CF-Connecting-IP");
       const country = request.cf?.country || null;
 
-      // Log download to D1 (non-blocking -- do not await)
+      // Log download + update rollup tables in D1 (non-blocking -- do not await)
       ctx.waitUntil(
         hashClientIp(clientIp).then((clientHash) =>
-          env.DB.prepare(
-            "INSERT INTO downloads (file, project, client_hash, country) VALUES (?, ?, ?, ?)"
-          )
-            .bind(key, project, clientHash, country)
-            .run()
+          recordDownload(env.DB, key, project, clientHash, country)
         )
       );
 
@@ -75,39 +149,47 @@ export default {
       return jsonResponse(cleaned);
     }
 
-    // Route: stats (includes unique_users)
+    // Route: stats (reads from rollup table + 30-min edge cache)
     if (pathname === "/stats") {
-      const stats = await env.DB.prepare(
-        "SELECT file, project, COUNT(*) as count, COUNT(DISTINCT client_hash) as unique_users FROM downloads WHERE project = ? GROUP BY file, project"
-      )
-        .bind(project)
-        .all();
+      return withEdgeCache(request, ctx, async () => {
+        const stats = await env.DB.prepare(
+          "SELECT file, project, count, unique_users FROM file_stats WHERE project = ?"
+        )
+          .bind(project)
+          .all();
 
-      return jsonResponse(stats.results);
+        return jsonResponse(stats.results, {
+          "Cache-Control": `public, max-age=${EDGE_CACHE_TTL_SECONDS}`,
+        });
+      });
     }
 
-    // Route: dashboard (HTML table with Downloads + Unique Users)
+    // Route: dashboard (reads from rollup tables + 30-min edge cache)
     if (pathname === "/dashboard") {
-      const stats = await env.DB.prepare(
-        "SELECT file, project, COUNT(*) as count, COUNT(DISTINCT client_hash) as unique_users FROM downloads WHERE project = ? GROUP BY file, project ORDER BY count DESC"
-      )
-        .bind(project)
-        .all();
+      return withEdgeCache(request, ctx, async () => {
+        const [stats, projectTotals] = await env.DB.batch([
+          env.DB.prepare(
+            "SELECT file, project, count, unique_users FROM file_stats WHERE project = ? ORDER BY count DESC"
+          ).bind(project),
+          env.DB.prepare(
+            "SELECT unique_users FROM project_stats WHERE project = ?"
+          ).bind(project),
+        ]);
 
-      const totals = await env.DB.prepare(
-        "SELECT COUNT(*) as total_downloads, COUNT(DISTINCT client_hash) as total_unique_users FROM downloads WHERE project = ?"
-      )
-        .bind(project)
-        .first();
+        const totalDownloads = stats.results.reduce(
+          (sum, r) => sum + Number(r.count || 0),
+          0
+        );
+        const totalUniqueUsers = projectTotals.results[0]?.unique_users ?? 0;
 
-      const rows = stats.results
-        .map(
-          (r) =>
-            `<tr><td>${r.file}</td><td>${r.project}</td><td>${r.count}</td><td>${r.unique_users}</td></tr>`
-        )
-        .join("");
+        const rows = stats.results
+          .map(
+            (r) =>
+              `<tr><td>${r.file}</td><td>${r.project}</td><td>${r.count}</td><td>${r.unique_users}</td></tr>`
+          )
+          .join("");
 
-      const html = `<!DOCTYPE html>
+        const html = `<!DOCTYPE html>
 <html>
 <head>
   <title>${project.toUpperCase()} Data Tracking Dashboard</title>
@@ -121,7 +203,7 @@ export default {
 </head>
 <body>
   <h1>${project.toUpperCase()} Data Tracking Dashboard</h1>
-  <p>Total downloads: <strong>${totals?.total_downloads ?? 0}</strong> | Unique users (since Oct 22, 2026): <strong>${totals?.total_unique_users ?? 0}</strong></p>
+  <p>Total downloads: <strong>${totalDownloads}</strong> | Unique users (since Oct 22, 2026): <strong>${totalUniqueUsers}</strong></p>
   <table>
     <thead><tr><th>File</th><th>Project</th><th>Downloads</th><th>Unique Users*</th></tr></thead>
     <tbody>${rows}</tbody>
@@ -130,8 +212,12 @@ export default {
 </body>
 </html>`;
 
-      return new Response(html, {
-        headers: { "Content-Type": "text/html" },
+        return new Response(html, {
+          headers: {
+            "Content-Type": "text/html",
+            "Cache-Control": `public, max-age=${EDGE_CACHE_TTL_SECONDS}`,
+          },
+        });
       });
     }
 
